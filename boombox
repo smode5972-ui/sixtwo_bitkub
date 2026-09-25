@@ -1,0 +1,224 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local MacLib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
+
+local Window = MacLib:Window({
+    Title = "Brookhaven Music Bypasser",
+    Subtitle = "Powered By Sixtwo",
+    Size = UDim2.fromOffset(868, 650),
+    Keybind = Enum.KeyCode.RightControl,
+    AcrylicBlur = false,
+})
+
+local tabGroup = Window:TabGroup()
+local mainTab = tabGroup:Tab({ Name = "Music Player", Image = "rbxassetid://10888331510" })
+local creditTab = tabGroup:Tab({ Name = "Credit", Image = "rbxassetid://10734950309" })
+
+local leftSection = mainTab:Section({ Side = "Left" })
+local rightSection = mainTab:Section({ Side = "Right" })
+
+local creditSection = creditTab:Section({ Side = "Left" })
+
+local currentSoundId = ""
+local currentVolume = 9999
+
+local function extractID(input)
+    if not input then return nil end
+    input = tostring(input)
+    local id = string.match(input, "rbxassetid://(%d+)") or string.match(input, "%d+")
+    return id
+end
+
+local function playServerSide(id, volume)
+    local soundId = "rbxassetid://" .. id
+    local char = LocalPlayer.Character
+    
+    pcall(function()
+        local args = { "ToolMusicText", id, nil, [4] = true }
+        ReplicatedStorage:WaitForChild("RE"):WaitForChild("PlayerToolEvent"):FireServer(unpack(args))
+    end)
+    
+    pcall(function()
+        local args = { "PickingScooterMusicText", id, [4] = true }
+        ReplicatedStorage:WaitForChild("RE"):WaitForChild("1NoMoto1rVehicle1s"):FireServer(unpack(args))
+    end)
+    
+    pcall(function()
+        local args = { math.clamp(volume / 100, 0, 100) }
+        LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("MainGUIHandler"):WaitForChild("MainAudio"):WaitForChild("Catalog"):WaitForChild("Header"):WaitForChild("VolumeContainer"):WaitForChild("VolumeChangeRequest"):FireServer(unpack(args))
+    end)
+    
+    if char then
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") and (string.find(tool.Name, "Boombox") or string.find(tool.Name, "Radio") or string.find(tool.Name, "Phone")) then
+                local sound = tool:FindFirstChildWhichIsA("Sound", true)
+                if sound then
+                    sound.SoundId = soundId
+                    sound.Volume = volume
+                    sound.TimePosition = 0
+                    sound:Play()
+                end
+                break
+            end
+        end
+    end
+    
+    Window:Notify({
+        Title = "เปิดเพลง สำเร็จ!", 
+        Description = "ส่งคำสั่งเพลงไปยังอุปกรณ์ทั้งหมดแล้ว", 
+        Lifetime = 4
+    })
+end
+
+leftSection:Button({
+    Name = "Equip Boombox",
+    Callback = function()
+        pcall(function()
+            local args = { "PickingTools", "Boombox" }
+            ReplicatedStorage:WaitForChild("RE"):WaitForChild("1Too1l"):InvokeServer(unpack(args))
+            Window:Notify({ Title = "Boombox", Description = "กำลังดึง Boombox ออกมา...", Lifetime = 3 })
+        end)
+    end,
+})
+
+leftSection:Button({
+    Name = "Equip Segway",
+    Callback = function()
+        pcall(function()
+            local args1 = { "filterClick", { name = "SegwaySmall", itemType = "Vehicles" } }
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("TelemetryClientInteraction"):FireServer(unpack(args1))
+            
+            local args2 = { "SegwaySmall" }
+            ReplicatedStorage:WaitForChild("RE"):WaitForChild("1NoMoto1rVehicle1s"):FireServer(unpack(args2))
+            
+            local args3 = { "uiInteraction", { buttonName = "VehicleHudButton", inVehicle = false } }
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("TelemetryClientInteraction"):FireServer(unpack(args3))
+            
+            Window:Notify({ Title = "Segway", Description = "กำลังดึงสกู๊ตเตอร์ออกมา...", Lifetime = 3 })
+        end)
+    end,
+})
+
+leftSection:Input({
+    Name = "Sound ID / Link",
+    Placeholder = "ใส่ ID เพลง หรือลิงค์ Roblox",
+    Callback = function(text)
+        currentSoundId = text
+    end,
+})
+
+leftSection:Button({
+    Name = "Play Music",
+    Callback = function()
+        local id = extractID(currentSoundId)
+        if id then
+            playServerSide(id, currentVolume)
+        else
+            Window:Notify({ 
+                Title = "Error", 
+                Description = "กรุณาใส่ Sound ID ที่ถูกต้อง", 
+                Lifetime = 3 
+            })
+        end
+    end,
+})
+
+leftSection:Button({
+    Name = "Stop Music",
+    Callback = function()
+        pcall(function()
+            local args1 = { "ToolMusicStop", "" }
+            ReplicatedStorage:WaitForChild("RE"):WaitForChild("PlayerToolEvent"):FireServer(unpack(args1))
+        end)
+        
+        pcall(function()
+            local args2 = { "PickingHouseMusicStop", "", [4] = true }
+            ReplicatedStorage:WaitForChild("RE"):WaitForChild("1Player1sHous1e"):FireServer(unpack(args2))
+        end)
+
+        pcall(function()
+            local args3 = { "PickingScooterMusicText", "", [4] = true }
+            ReplicatedStorage:WaitForChild("RE"):WaitForChild("1NoMoto1rVehicle1s"):FireServer(unpack(args3))
+        end)
+
+        local char = LocalPlayer.Character
+        if char then
+            for _, tool in ipairs(char:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local sound = tool:FindFirstChildWhichIsA("Sound", true)
+                    if sound then sound:Stop() end
+                end
+            end
+        end
+        local oldSound = workspace:FindFirstChild("BypassLocalSound")
+        if oldSound then oldSound:Destroy() end
+        
+        Window:Notify({ 
+            Title = "Stopped", 
+            Description = "หยุดเล่นเพลงทั้งหมดแล้ว", 
+            Lifetime = 3 
+        })
+    end,
+})
+
+rightSection:Slider({
+    Name = "Volume (Decibels)",
+    Default = 9999,
+    Minimum = 100,
+    Maximum = 10000,
+    Callback = function(value)
+        currentVolume = value
+    end,
+})
+
+rightSection:Keybind({
+    Name = "Toggle UI Keybind",
+    Default = Enum.KeyCode.RightControl,
+    Callback = function(binded)
+    end,
+    onBinded = function(bind)
+        Window:SetKeybind(bind)
+        Window:Notify({
+            Title = "Keybind Updated",
+            Description = "ตั้งค่าปุ่มเปิด/ปิด UI เป็น: " .. tostring(bind.Name),
+            Lifetime = 3
+        })
+    end,
+})
+
+creditSection:Paragraph({
+    Header = "Credits",
+    Body = "Powered By Sixtwo and Horizon Shop"
+})
+
+creditSection:Button({
+    Name = "Copy Discord Link",
+    Callback = function()
+        pcall(function()
+            if setclipboard then
+                setclipboard("https://discord.gg/YyYcAMsAbQ")
+                Window:Notify({
+                    Title = "Discord",
+                    Description = "คัดลอกลิงค์ Discord สำเร็จแล้ว!",
+                    Lifetime = 4
+                })
+            else
+                Window:Notify({
+                    Title = "Error",
+                    Description = "Executor ของคุณไม่รองรับ setclipboard",
+                    Lifetime = 4
+                })
+            end
+        end)
+    end,
+})
+
+Window:Notify({
+    Title = "Music Bypasser",
+    Description = "โหลดสำเร็จ! กดปุ่ม Equip แล้วกดเล่นเพลง (กด RightCtrl เพื่อเปิด/ปิด UI)",
+    Lifetime = 5
+})
+
+mainTab:Select()
